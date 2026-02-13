@@ -36,6 +36,20 @@ class Child extends Base, public Base2 {
 };
 ```
 
+This also applies to structs:
+```cpp
+struct A {};
+struct B {};
+struct C extends A , B {};
+struct D extends private A, protected B {};
+
+class A__ {};
+class B__ {};
+class C__ extends A__ {};
+class D__ extends private C__, public B__ {};
+class E__ extends public D__ {};
+```
+
 ### Annotations
 ```cpp
 @maybe_unused
