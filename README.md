@@ -29,6 +29,12 @@ class Child extends Base {
   //whatever
 };
 ```
+For multiple inheritance, just do:
+```cpp
+class Child extends Base, public Base2 {
+  //whatever
+};
+```
 
 ### Annotations
 ```cpp
