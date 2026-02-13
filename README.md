@@ -42,6 +42,9 @@ class Child extends Base, public Base2 {
 void func() {}
 ```
 
+### `static`
+These don't work anymore (since BC++ generates one big output file) because I didn't bother to do anything about it since I never use it.
+
 ### File inclusion
 Now it is Go like, but this applies only to your files, you can keep `#include <iostream>`, etc.
 ```
