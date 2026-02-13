@@ -8,3 +8,30 @@ So, in conclusion, "better" is stricly speaking from my own perspective.
 ## Contribution
 If you want to add any stuff, feel free to make a pull request.
 If you have any recommendations, open an issue.
+
+## What's different?
+### Access modifiers in classes
+Now they're more Java like:
+```cpp
+class myClass
+{
+  private int var = 0;
+  template<typename T>
+  public static void func() {}
+  public explicit inline myClass() {}
+  protected void func2() {}
+};
+```
+
+### Class inheritance
+```cpp
+class Child extends Base {
+  //whatever
+};
+```
+
+### Annotations
+```cpp
+@maybe_unused
+void func() {}
+```
