@@ -41,3 +41,9 @@ class Child extends Base, public Base2 {
 @maybe_unused
 void func() {}
 ```
+
+### File inclusion
+Now it is Go like, but this applies only to your files, you can keep `#include <iostream>`, etc.
+```
+link "path/to/file";
+```
