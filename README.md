@@ -64,3 +64,5 @@ Now it is Go like, but this applies only to your files, you can keep `#include <
 ```
 link "path/to/file";
 ```
+
+The `link` directive supports the following extensions: `*.bcpp`, `*.cpp`, `*.hpp`, `*.c`, `*.h`
