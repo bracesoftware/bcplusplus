@@ -66,3 +66,14 @@ link "path/to/file";
 ```
 
 The `link` directive supports the following extensions: `*.bcpp`, `*.cpp`, `*.hpp`, `*.c`, `*.h`
+
+
+## Defer code blocks
+```cpp
+int main()
+{
+    $defer //BC++ feature, $ blocks
+        newasm::GLOBAL::cleanup();
+    $// instead of {}, we use $..$
+    return 0;
+}
