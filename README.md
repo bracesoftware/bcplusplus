@@ -1,5 +1,5 @@
 <div align="center">
-    <img height="300" src="bc++.png">
+    <img height="100" src="bc++.png">
 </div>
 
 BC++, or Better C++, is a translation layer made for C++ in an attempt to make annoying syntax more readable and enjoyable. Made with C++23.
