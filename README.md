@@ -64,14 +64,19 @@ These don't work anymore (since BC++ generates one big output file) because I di
 
 ### File inclusion
 Now it is Go like, but this applies only to your files, you can keep `#include <iostream>`, etc.
-```
+```cpp
 link "path/to/file";
 ```
 
 The `link` directive supports the following extensions: `*.bcpp`, `*.cpp`, `*.hpp`, `*.c`, `*.h`
 
+If you want to include a file on the internet, add a `fetch` keyword in front of the file:
+```cpp
+fetch link "https://path/to/file";
+```
+You also don't have to provide the extension, the transpiler will guess it.
 
-## Defer code blocks
+### Defer code blocks
 ```cpp
 int main()
 {
