@@ -8,6 +8,7 @@
 #include <vector>
 #include <regex>
 #include <unordered_map>
+#include <curl/curl.h>
 // ----------------------------------------- MACROS -----------------------------------------
 #define __BCXX_CLASS_ACCESS_MODIFIER(ss, KWORD__, result, lines) if(result.rfind(KWORD__, 0) == 0)\
             {\
@@ -26,7 +27,9 @@
                 result = ss.str();\
                 return result;\
             }
-
+#define SRC_FOLDER ("src/")
+#define TEMP_FOLDER (".bcxx/")
+#define FILE_EXTENSIONS ".bcpp",".cpp",".c",".h",".hpp"
 // ----------------------------------------- CODE -----------------------------------------
 
 namespace bcxx__
@@ -203,9 +206,87 @@ namespace bcxx__
             //returns trimmed string
             return std::string(start, it + 1);
         }
+
+        [[nodiscard]]
+        bool download_OLD(const std::string& url, const std::string& output_path)
+        {
+            CURL* curl = curl_easy_init();
+            if(!curl) return false;
+
+            FILE* file = fopen(output_path.c_str(), "wb");
+            if(!file)
+            {
+                curl_easy_cleanup(curl);
+                return false;
+            }
+
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+            curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.88.1");
+
+            CURLcode res = curl_easy_perform(curl);
+
+            fclose(file);
+            curl_easy_cleanup(curl);
+
+            if(res != CURLE_OK)
+            {
+                std::remove(output_path.c_str());
+                return false;
+            }
+
+            return true;
+        }
+
+        size_t write_data(void* ptr, size_t size, size_t nmemb, FILE* stream)
+        {
+            size_t written = fwrite(ptr, size, nmemb, stream);
+            return written;
+        }
+
+        [[nodiscard]]
+        bool download(std::string url, std::string output_path)
+        {
+            url.erase(url.find_last_not_of(" \n\r\t") + 1);
+            bcxx__::print("Downloading from: `" + url + "`");
+            CURL* curl = curl_easy_init();
+            if(!curl) return false;
+
+            FILE* file = fopen(output_path.c_str(), "wb");
+            if(!file)
+            {
+                curl_easy_cleanup(curl);
+                return false;
+            }
+
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+            
+            curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/8.0.0");
+            
+
+            CURLcode res = curl_easy_perform(curl);
+
+            fclose(file);
+            curl_easy_cleanup(curl);
+
+            if(res != CURLE_OK)
+            {
+                fprintf(stderr, "CURL error: %s\n", curl_easy_strerror(res));
+                std::remove(output_path.c_str());
+                return false;
+            }
+
+            return true;
+        }
     }
     
-
     class file_linker
     {
         private:
@@ -242,13 +323,13 @@ namespace bcxx__
         static inline std::pair<bool, std::vector<std::string>> read(const std::string& filename)
         {
             static const std::vector<std::string> extensions = {
-                ".bcpp", ".cpp", ".c", ".h", ".hpp"
+                FILE_EXTENSIONS
             };
             int exists = -1;
 
             for(int i = 0; i < extensions.size(); ++i)
             {
-                if(std::filesystem::exists(filename + extensions.at(i)))
+                if(std::filesystem::exists(SRC_FOLDER + filename + extensions.at(i)))
                 {
                     exists = i;
                     break;
@@ -261,7 +342,7 @@ namespace bcxx__
                 return {false, {}};
             }
 
-            std::ifstream file(filename + extensions.at(exists));
+            std::ifstream file(SRC_FOLDER + filename + extensions.at(exists));
 
             if(!file.is_open())
             {
@@ -280,6 +361,49 @@ namespace bcxx__
             file.close();
             return {true, lines};
         }
+        static inline std::pair<bool, std::vector<std::string>> read_online(const std::string& link)
+        {
+            using string = std::string;
+            static const std::vector<std::string> extensions = {
+                FILE_EXTENSIONS
+            };
+            static const string downloaded_filename = "__source__.bcpp";
+            int exists = -1;
+
+            for(int i = 0; i < extensions.size(); ++i)
+            {
+                if(bcxx__::util::download(link + extensions.at(i), TEMP_FOLDER + downloaded_filename))
+                {
+                    exists = i;
+                    break;
+                }
+            }
+
+            if(exists == -1)
+            {
+                bcxx__::print("No such file found on server -> " + link);
+                return {false, {}};
+            }
+
+            std::ifstream file(TEMP_FOLDER + downloaded_filename);
+
+            if(!file.is_open())
+            {
+                bcxx__::print("System has encountered an error while link `" + link + "`.");
+                return {false, {}};
+            }
+
+            std::vector<string> lines;
+
+            string line;
+            while(std::getline(file, line))
+            {
+                lines.push_back(line);
+            }
+
+            file.close();
+            return {true, lines};
+        }
         static inline std::pair<bool, std::string> __BCXX_SYNTAX_MATCH_link(const std::string& line)
         {
             static const std::regex pattern("^\\s*link\\s+\"([^\"]+)\"\\s*;$");//std::regex pattern(R"(^package\s+(.+);$)");
@@ -287,6 +411,17 @@ namespace bcxx__
             if(std::regex_match(line, match, pattern))
             {
                 return {true, match[1].str()};
+            }
+
+            return {false, ""};
+        }
+        static inline std::pair<bool, std::string> __BCXX_SYNTAX_MATCH_fetch_link(const std::string& line)
+        {
+            static const std::regex pattern("(^\\s*fetch\\s+link\\s+\"([^\"]+)\"\\s*;$)");
+            std::smatch match;
+            if(std::regex_match(line, match, pattern))
+            {
+                return {true, match[2].str()};
             }
 
             return {false, ""};
@@ -589,6 +724,30 @@ namespace bcxx__
 
                     files++;
                 }
+                //linking from internet
+                auto p2 = bcxx__::file_linker::__BCXX_SYNTAX_MATCH_fetch_link(v[i]);
+                if(p2.first)
+                {
+                    std::string module_link = p2.second;
+                    module_link = bcxx__::util::trim(module_link);
+                    auto c = bcxx__::file_linker::read_online(module_link);
+                    if(!c.first)
+                    {
+                        continue;
+                    }
+                    v2 = c.second;
+                    bcxx__::print("Linking downloaded package/app module `" + module_link + "`...");
+                    bcxx__::file_linker::__repl_vec_seg(v, v2, i);
+
+                    for(int j = 0; j < v2.size(); ++j)
+                    {
+                        line_data_local.push_back({p2.second, j + 1});
+                    }
+
+                    bcxx__::file_linker::__repl_vec_seg(bcxx__::line_info, line_data_local, i);
+
+                    files++;
+                }
             }
 
             bcxx__::print("Successfully linked " + std::to_string(files) + " files.");
@@ -615,6 +774,11 @@ int main(int argc, char** argv)
     {
         bcxx__::print("only 2 arguments are needed -> filename output name\n\t\tbc++ my_code.cpp outputcode.cpp\n\n\t\tMAKE SURE NOT TO ADD ANY FILE EXTENSIONS! COMPILER USES THE *.bcpp EXTENSION!!!");
         return 1;
+    }
+
+    if(!std::filesystem::exists(TEMP_FOLDER))
+    {
+        std::filesystem::create_directory(TEMP_FOLDER);
     }
 
     std::string file = argv[1];
